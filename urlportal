@@ -1,0 +1,230 @@
+#!/usr/bin/env bash
+# desc: open url with your own custom choice menu
+# demo: https://youtu.be/6t4i73_YiFc
+# depend: fzf coreutils curl
+
+#-------------------------------------------
+# configs examples
+#-------------------------------------------
+# newsboat:
+#   $EDITOR ~/.newsboat/config
+#     # press 'o' on an article to activate
+#     # press '<num>' of a url to activate
+#     browser "urlportal %u 2>/dev/null"
+
+# newsraft:
+#   $EDITOR ~/.config/newsraft/config
+#     # press 'o' on an article to activate
+#     # press '<num> then o' of a url to activate
+#     bind o mark-read ; exec urlportal "%l" 2>/dev/null
+
+# rtv:
+#   $EDITOR ~/.bashrc
+#     export RTV_BROWSER=~/.scripts/urlportal
+
+# urlview:
+#   $EDITOR ~/.urlview
+#     COMMAND ~/.scripts/urlportal
+
+# w3m:
+#   $EDITOR ~/.w3m/keymap
+#     # cursor on a link then press 'a' to activate
+#     keymap a EXTERN_LINK 'urlportal %s 2>/dev/null'
+#     # press 'shift-a' on current page to activate
+#     keymap A EXTERN 'urlportal %s 2>/dev/null'
+
+# chawan:
+#   $EDITOR ~/.config/chawan/config.toml
+#     # cursor on a link then press 'o' to activate
+#     [page]
+#     o = 'pager.extern(`urlportal "$u" 2>/dev/null`, {env: {u: pager.hoverLink}})'
+
+# elinks:
+#   $EDITOR ~/.config/elinks/elinks.conf
+#     # cursor on a link then press 'i' to activate
+#     bind "main" "i" = "link-external-command"
+#     set document.uri_passing.urlportal.command = "urlportal %c"
+#     set document.uri_passing.urlportal.foreground = 1
+
+# lynx:
+#   $EDITOR ~/.config/lynx/lynx.cfg
+#     # cursor on a link then press '.' to activate
+#     # press ',' at the current page to activate
+#     EXTERNAL:http:urlportal %s:TRUE
+#     EXTERNAL:magnet:urlportal %s:TRUE
+#     EXTERNAL:file:urlportal %s:TRUE
+#     EXTERNAL:ftp:urlportal %s:TRUE
+
+#-------------------------------------------
+# programs
+#-------------------------------------------
+save_dir="${HOME}/Downloads"
+
+audio_cli="mpv --no-video --loop"
+audio_tui="nvlc --no-video --loop"
+bookmarker="linkding --config ~/.config/linkding-cli/config.json bookmarks create"
+browser_gui="firefox"
+browser_gui_private="firefox --private-window"
+browser_tui="w3m"
+browser_tui_reader_view="rdrview -B w3m"
+dl_aria2p="aria2p add"
+dl_megatools="megadl --limit-speed=3000 --path=$save_dir"
+dl_plowshare="plowdown --max-rate=3000K --output-directory=$save_dir"
+dl_torrent="transmission-remote --add"
+dl_torrent_server="transmission-remote 192.168.1.XXX:9091 --auth username:password --add"
+dl_wget="wget --continue --directory-prefix $save_dir"
+dl_ytdlp="yt-dlp --output $save_dir/'%(title)s.%(ext)s'"
+img_viewer_gui="feh --fullscreen"
+img_viewer_cli="chafa --clear --duration infinite"
+queue_dl="TS_SOCKET=/tmp/dl tsp"
+queue_media="TS_SOCKET=/tmp/media tsp"
+show_comment_reddit="reddittui -post"
+show_comment_youtube="pipe-viewer --ytdl-cmd yt-dlp --ytdlp-comments --max-comments 6 --comments"
+st_chromecast="catt cast"
+st_chromecast_queue="catt add"
+st_kodi="kodi-cli -y"
+st_kodi_queue="kodi-cli -q"
+video_cli="mpv --loop --vo=tct"
+video_gui="mpv --force-window --ontop --no-border --autofit=500x280 --geometry=-15-53"
+## get display list --> $ mpv --drm-connector=help | grep -i "(connected)"
+video_tty="mpv --loop --vo=drm --gpu-context=drm --drm-connector=HDMI-A-1"
+video_img="mpv --force-window --fullscreen --loop --quiet --ontop --no-border"
+#-------------------------------------------
+
+# clear terminal and tmux scrollback screens
+printf "\033c"
+tmux clear-history 2>/dev/null
+
+# external url link from newsboat, w3m ...etc
+# 'urlencode' replace single qoutes with %27
+lnk="${1//\'/%27}"
+
+choice=$(cat <<_TXTBLOCK_
+mm -- video: gui
+mc -- video: cli (ascii)
+ll -- video: imageviewer (image/meme/gif)
+fb -- tty/framebuffer: video/image/gif
+aa -- audio: cli (audio/radio/mp3)
+au -- audio: tui (audio/podcast/radio/mp3)
+ii -- imageviewer: gui
+vv -- imageviewer: cli (image/gif)
+ww -- browser: tui
+rv -- browser: tui - reader view
+wk -- browser: tui - wayback machine
+bb -- browser: gui
+pp -- browser: gui - private incognito
+wb -- browser: gui - wayback machine
+ld -- bookmark: linkding
+rr -- show-comments: reddit
+uu -- show-comments: youtube [enter:next, ;r:back]
+yy -- yank url to clipboard
+ap -- downloader: aria2p
+md -- downloader: mega.nz
+ts -- downloader: torrent remote server
+tt -- downloader: torrent
+uv -- downloader: yt-dlp
+wg -- downloader: plowshare
+wg -- downloader: wget
+cc -- stream: chromecast
+cq -- stream: chromecast queue
+kk -- stream: kodi
+kq -- stream: kodi queue
+_TXTBLOCK_
+)
+
+# fzf options
+export FZF_DEFAULT_OPTS='--preview-window up,4,wrap --prompt="urlportal: " --exact --info=hidden --layout=reverse --tiebreak=index'
+fzf_prog() { fzf-tmux -p -h 75% --preview "printf %s '$lnk'" ;}
+
+selection="$(printf %s "$choice" | fzf_prog | cut -d ' ' -f1)"
+case $selection in
+  yy) # X11=xsel/xclip; wayland=wl-copy; winos(vista+)=clip; cygwin=/dev/clipboard; macos=pbcopy; android=termux
+    printf %s "$lnk" | xsel -b 2>/dev/null || printf %s "$lnk" | xclip -selection clipboard -r 2>/dev/null
+    printf %s "$lnk" | wl-copy 2>/dev/null
+    printf %s "$lnk" | clip 2>/dev/null
+    (printf %s "$lnk" > /dev/clipboard) 2>/dev/null
+    printf %s "$lnk" | pbcopy 2>/dev/null
+    printf %s "$lnk" | termux-clipboard-set 2>/dev/null
+    (printf %s "$lnk" | tmux load-buffer -) 2>/dev/null
+    ;;
+  au)
+      if [ "$TERM_PROGRAM" = tmux ]; then
+        tmux new-window -n audio-tui && tmux send-keys "$audio_tui '$lnk' && tmux kill-pane" C-m
+      else
+        eval "$audio_tui '$lnk'"
+      fi
+    ;;
+  aa) # if playerctl is installed then run audio in background and use playerctl to control
+      if [ -x "$(command -v playerctl)" ]; then
+        eval "$audio_cli '$lnk'" > /dev/null 2>&1 &
+      elif [ "$TERM_PROGRAM" = tmux ]; then
+        tmux split-window -v -l 10 && tmux send-keys "$audio_cli '$lnk' && tmux kill-pane" C-m
+      else
+        eval "$audio_cli '$lnk'"
+      fi
+    ;;
+  ld) 
+      printf '%s\n' "Add to LINKDING Bookmarks"
+      printf '%s\n' "URL: $lnk"
+      printf '%s\n' "------------------------"
+      printf '%s\n' 'enter in tag(s) (comma-separated)'
+      read -r tags
+      tags=${tags//[[:blank:]]/}
+      [ -z "$tags" ] && printf '%s\n' 'No tags entered, exiting ...3..2..1' && sleep 3 && exit
+      printf '\n'
+      printf '%s\n' 'share this bookmark? [y/n]'
+      read -r shared
+      shared=${shared//[[:blank:]]/}
+      [ -z "$shared" ] && printf '%s\n' 'y/n not entered, exiting ...3..2..1' && sleep 3 && exit
+      printf '\n'
+      if [[ $shared =~ ^[Yy]$ ]]; then
+        eval "$bookmarker '$lnk' --shared --tags $tags"
+        printf '\n'
+        printf '%s\n' "Press any key to continue"
+        read -rsn1
+      else
+        eval "$bookmarker '$lnk' --tags $tags"
+        printf '\n'
+        printf '%s\n' "Press any key to continue"
+        read -rsn1
+      fi
+    ;;
+  rr)
+      if [ "$TERM_PROGRAM" = tmux ]; then
+        tmux new-window -n reddit-comments && tmux send-keys "$show_comment_reddit '$lnk' 2>/dev/null && tmux kill-pane" C-m
+      else
+        eval "$show_comment_reddit '$lnk' 2>/dev/null"
+      fi
+    ;;
+  uu)
+      if [ "$TERM_PROGRAM" = tmux ]; then
+        tmux new-window -n youtube-comments && tmux send-keys "$show_comment_youtube '$lnk' 2>/dev/null && tmux kill-pane" C-m
+      else
+        eval "$show_comment_youtube '$lnk' 2>/dev/null"
+      fi
+    ;;
+  mm) eval "$queue_media $video_gui '$lnk'" ;;
+  mc) eval "$video_cli '$lnk'" ;;
+  fb) eval "$video_tty '$lnk'" ;;
+  ll) $video_img "$lnk" > /dev/null 2>&1 & ;;
+  tt) eval "$dl_torrent '$lnk'" ;;
+  ts) eval "$dl_torrent_server '$lnk'" ;;
+  md) eval "$queue_dl $dl_megatools '$lnk'" ;;
+  ps) eval "$queue_dl $dl_plowshare '$lnk'" ;;
+  uv) eval "$queue_dl $dl_ytdlp '$lnk'" ;;
+  wg) eval "$queue_dl $dl_wget '$lnk'" ;;
+  ww) $browser_tui "$lnk" ;;
+  rv) $browser_tui_reader_view "$lnk" ;;
+  bb) $browser_gui "$lnk" ;;
+  pp) $browser_gui_private "$lnk" ;;
+  wb) $browser_gui "https://web.archive.org/$lnk" ;;
+  wk) $browser_tui "https://web.archive.org/$lnk" ;;
+  cc) $st_chromecast "$lnk" ;;
+  cq) $st_chromecast_queue "$lnk" ;;
+  kk) eval "$st_kodi '$lnk'" ;;
+  kq) eval "$st_kodi_queue '$lnk'" ;;
+  ap) eval "$dl_aria2p $lnk" ;;
+  ii) $img_viewer_gui "$lnk" ;;
+  vv) curl "$lnk" | $img_viewer_cli - ;;
+esac
+
