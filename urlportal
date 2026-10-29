@@ -2,10 +2,10 @@
 # desc: open url with your own custom choice menu
 # demo: https://youtu.be/6t4i73_YiFc
 # depend: fzf coreutils curl
+export FZF_DEFAULT_OPTS='--preview-window up,3,wrap,noinfo --prompt="urlportal: " --exact --ignore-case --info=hidden --layout=reverse --tiebreak=index'
 
-#-------------------------------------------
-# configs examples
-#-------------------------------------------
+#-------- hotkey mapping {{{
+#------------------------------------------------------
 # newsboat:
 #   $EDITOR ~/.newsboat/config
 #     # press 'o' on an article to activate
@@ -37,7 +37,10 @@
 #   $EDITOR ~/.config/chawan/config.toml
 #     # cursor on a link then press 'o' to activate
 #     [page]
-#     o = 'pager.extern(`urlportal "$u" 2>/dev/null`, {env: {u: pager.hoverLink}})'
+#     # cursor on a link then press 'a' to activate
+#     a = 'pager.extern(`urlportal "$u"`, {env: {u: pager.hoverLink}})'
+#     # press 'shift-a' on current page to activate
+#     A = 'pager.extern(`urlportal "$CHA_URL"`)'
 
 # elinks:
 #   $EDITOR ~/.config/elinks/elinks.conf
@@ -55,76 +58,132 @@
 #     EXTERNAL:file:urlportal %s:TRUE
 #     EXTERNAL:ftp:urlportal %s:TRUE
 
-#-------------------------------------------
-# programs
+
+# }}}
+#-------- substitute url {{{
+#------------------------------------------------------
+# 'urlencode' replace single qoutes with %27
+lnk="${1//\'/%27}"
+
+#### youtube
+# lnk="${lnk/inv.nadeko.net/www.youtube.com}"
+
+#### redirect websites list
+### https://github.com/libreddit/libreddit-instances/blob/master/instances.md
+# lnk="${lnk/www.reddit.com/safereddit.com}"
+
+#### https://github.com/zedeus/nitter/wiki/Instances
+# lnk="${lnk/x.com/nitter.net}"
+# lnk="${lnk/twitter.com/nitter.net}"
+
+#### https://codeberg.org/rimgo/instances
+# lnk="${lnk/imgur.com/imgur.artemislena.eu}"
+
+### https://searx.space/
+### https://docs.invidious.io/instances/
+# lnk="${lnk/www.youtube.com/invidious.f5.si}"
+
+#### redirect proxy/mirror list
+### https://piratebayproxy.info/
+# lnk="${lnk/thepiratebay.org/thepiratebay10.org}"
+
+### https://www.vpncentral.com/1337x-proxy-list/
+# lnk="${lnk/1337x.to/www.1337xx.to}"
+
+# }}}
+#-------- program variable {{{
 #-------------------------------------------
 save_dir="${HOME}/Downloads"
+mybkmark="$HOME/.config/surfraw/bookmarks"
 
-audio_cli="mpv --no-video --loop"
-audio_tui="nvlc --no-video --loop"
-bookmarker="linkding --config ~/.config/linkding-cli/config.json bookmarks create"
-browser_gui="firefox"
-browser_gui_private="firefox --private-window"
-browser_tui="w3m"
-browser_tui_reader_view="rdrview -B w3m"
+audio_cli_mpv="mpv --no-video --loop"
+audio_tui_nvlc="nvlc --no-video --loop"
+bookmarker_linkding="linkding --config ~/.config/linkding-cli/config.json bookmarks create"
+browser_gui_firefox="firefox"
+browser_gui_firefox_private="firefox --private-window"
+browser_gui_brave="brave-browser"
+browser_gui_brave_private="brave-browser --incognito"
+browser_gui_chromium="chromium"
+browser_gui_chromium_private="chromium --incognito"
+browser_tui_w3m="w3m"
+browser_tui_chawan="cha"
+browser_tui_lynx="lynx"
+browser_tui_elinks="elinks"
+browser_tui_links="links"
+readerview_rdrview="rdrview -B w3m"
 dl_aria2p="aria2p add"
+dl_aria2tui="aria2tui --add_download"
 dl_megatools="megadl --limit-speed=3000 --path=$save_dir"
 dl_plowshare="plowdown --max-rate=3000K --output-directory=$save_dir"
-dl_torrent="transmission-remote --add"
-dl_torrent_server="transmission-remote 192.168.1.XXX:9091 --auth username:password --add"
+dl_transmission="transmission-remote --add"
+# dl_transmission_server="transmission-remote 192.168.1.131:9091 --auth username:password --add"
+dl_transmission_server="tsm-add-anubis"
 dl_wget="wget --continue --directory-prefix $save_dir"
+dl_surge="surge --output $save_dir add"
+# dl_surge="surge --output ~/.cyberbay/surgebay add"
 dl_ytdlp="yt-dlp --output $save_dir/'%(title)s.%(ext)s'"
-img_viewer_gui="feh --fullscreen"
-img_viewer_cli="chafa --clear --duration infinite"
+img_viewer_gui_feh="feh --fullscreen"
+img_viewer_cli_chafa="chafa --clear --duration infinite"
 queue_dl="TS_SOCKET=/tmp/dl tsp"
 queue_media="TS_SOCKET=/tmp/media tsp"
-show_comment_reddit="reddittui -post"
 show_comment_youtube="pipe-viewer --ytdl-cmd yt-dlp --ytdlp-comments --max-comments 6 --comments"
 st_chromecast="catt cast"
 st_chromecast_queue="catt add"
 st_kodi="kodi-cli -y"
 st_kodi_queue="kodi-cli -q"
-video_cli="mpv --loop --vo=tct"
-video_gui="mpv --force-window --ontop --no-border --autofit=500x280 --geometry=-15-53"
+video_cli_mpv="mpv --loop --vo=tct"
+video_gui_mpv="mpv --force-window --ontop --no-border --autofit=500x280 --geometry=-15-53"
 ## get display list --> $ mpv --drm-connector=help | grep -i "(connected)"
-video_tty="mpv --loop --vo=drm --gpu-context=drm --drm-connector=HDMI-A-1"
-video_img="mpv --force-window --fullscreen --loop --quiet --ontop --no-border"
-#-------------------------------------------
-
+video_tty_mpv="mpv --loop --vo=drm --gpu-context=drm --drm-connector=HDMI-A-1"
+video_img_mpv="mpv --force-window --fullscreen --loop --quiet --ontop --no-border"
+# }}}
+#-------- choice menu {{{
+#------------------------------------------------------
 # clear terminal and tmux scrollback screens
 printf "\033c"
 tmux clear-history 2>/dev/null
 
-# external url link from newsboat, w3m ...etc
-# 'urlencode' replace single qoutes with %27
-lnk="${1//\'/%27}"
-
 choice=$(cat <<_TXTBLOCK_
-mm -- video: gui
-mc -- video: cli (ascii)
-ll -- video: imageviewer (image/meme/gif)
-fb -- tty/framebuffer: video/image/gif
-aa -- audio: cli (audio/radio/mp3)
-au -- audio: tui (audio/podcast/radio/mp3)
-ii -- imageviewer: gui
-vv -- imageviewer: cli (image/gif)
-ww -- browser: tui
-rv -- browser: tui - reader view
-wk -- browser: tui - wayback machine
-bb -- browser: gui
-pp -- browser: gui - private incognito
-wb -- browser: gui - wayback machine
-ld -- bookmark: linkding
-rr -- show-comments: reddit
-uu -- show-comments: youtube [enter:next, ;r:back]
 yy -- yank url to clipboard
-ap -- downloader: aria2p
-md -- downloader: mega.nz
-ts -- downloader: torrent remote server
-tt -- downloader: torrent
-uv -- downloader: yt-dlp
-wg -- downloader: plowshare
-wg -- downloader: wget
+vv -- video: gui - mpv
+vi -- video: gui - mpv (loop/meme/image/gif)
+vc -- video: cli - mpv (ascii)
+vf -- video: framebuffer - mpv (video/image/gif)
+aa -- audio: cli - mpv (radio/mp3)
+au -- audio: tui - nvlc (podcast/radio/mp3/playlist)
+ii -- imageviewer: cli - chafa (image/gif)
+ig -- imageviewer: gui - feh
+rv -- readerview: tui - rdrview
+ww -- web-browser: tui - w3m
+wm -- web-browser: tui - w3m wayback machine
+wc -- web-browser: tui - chawan
+wl -- web-browser: tui - lynx
+we -- web-browser: tui - elinks
+wi -- web-browser: tui - links
+wf -- web-browser: gui - firefox
+wp -- web-browser: gui - firefox private incognito
+wk -- web-browser: gui - firefox wayback machine
+wb -- web-browser: gui - brave
+wo -- web-browser: gui - brave private incognito
+wv -- web-browser: gui - brave wayback machine
+wr -- web-browser: gui - chromium
+wn -- web-browser: gui - chromium private incognito
+wa -- web-browser: gui - chromium wayback machine
+bb -- bookmark: surfraw
+bl -- bookmark: linkding
+uu -- show-comments: youtube - pipe-viewer [enter:next | ;r:back]
+da -- downloader: daemon - aria2p
+di -- downloader: daemon - aria2tui
+dr -- downloader: daemon - transmission remote server
+dt -- downloader: daemon - transmission local
+ds -- downloader: daemon - surge
+dm -- downloader: cli - mega.nz
+dy -- downloader: cli - yt-dlp
+dp -- downloader: cli - plowshare
+dw -- downloader: cli - wget
+ua -- bulk downloader: daemon - aria2p
+ui -- bulk downloader: daemon - aria2tui
+us -- bulk downloader: daemon - surge
 cc -- stream: chromecast
 cq -- stream: chromecast queue
 kk -- stream: kodi
@@ -132,14 +191,19 @@ kq -- stream: kodi queue
 _TXTBLOCK_
 )
 
-# fzf options
-export FZF_DEFAULT_OPTS='--preview-window up,4,wrap --prompt="urlportal: " --exact --info=hidden --layout=reverse --tiebreak=index'
-fzf_prog() { fzf-tmux -p -h 75% --preview "printf %s '$lnk'" ;}
+# }}}
+#-------- case statement {{{
+#------------------------------------------------------
 
-selection="$(printf %s "$choice" | fzf_prog | cut -d ' ' -f1)"
+if [ "$TERM_PROGRAM" = tmux ]; then
+  selection="$(printf %s "$choice" | fzf-tmux -p -h 75% --preview "printf %s '$lnk'" | cut -d ' ' -f1)"
+else
+  selection="$(printf %s "$choice" | fzf --preview "printf %s '$lnk'" | cut -d ' ' -f1)"
+fi
+
 case $selection in
   yy) # X11=xsel/xclip; wayland=wl-copy; winos(vista+)=clip; cygwin=/dev/clipboard; macos=pbcopy; android=termux
-    printf %s "$lnk" | xsel -b 2>/dev/null || printf %s "$lnk" | xclip -selection clipboard -r 2>/dev/null
+    printf %s "$lnk" | xsel -b 2>/dev/null || printf %s "$lnk" | xclip -selection clipboard -rmlastnl 2>/dev/null
     printf %s "$lnk" | wl-copy 2>/dev/null
     printf %s "$lnk" | clip 2>/dev/null
     (printf %s "$lnk" > /dev/clipboard) 2>/dev/null
@@ -147,23 +211,38 @@ case $selection in
     printf %s "$lnk" | termux-clipboard-set 2>/dev/null
     (printf %s "$lnk" | tmux load-buffer -) 2>/dev/null
     ;;
+  ua)
+      hyperlink=$(lynx -listonly -nonumbers -dump "$lnk" | fzf --multi --prompt="aria2p>>> add link(s): ")
+      [ -z "$hyperlink" ] && exit
+      echo "$hyperlink" | while read -r lnk ; do $dl_aria2p "$lnk" ; done
+    ;;
+  ui)
+      hyperlink=$(lynx -listonly -nonumbers -dump "$lnk" | fzf --multi --prompt="aria2tui>>> add link(s): ")
+      [ -z "$hyperlink" ] && exit
+      echo "$hyperlink" | while read -r lnk ; do $dl_aria2tui "$lnk" ; done
+    ;;
+  us)
+      hyperlink=$(lynx -listonly -nonumbers -dump "$lnk" | fzf --multi --prompt="surge>>> add link(s): ")
+      [ -z "$hyperlink" ] && exit
+      echo "$hyperlink" | while read -r lnk ; do $dl_surge "$lnk" ; done
+    ;;
   au)
       if [ "$TERM_PROGRAM" = tmux ]; then
-        tmux new-window -n audio-tui && tmux send-keys "$audio_tui '$lnk' && tmux kill-pane" C-m
+        tmux new-window -n audio-tui && tmux send-keys "$audio_tui_nvlc '$lnk' && tmux kill-pane" C-m
       else
-        eval "$audio_tui '$lnk'"
+        eval "$audio_tui_nvlc '$lnk'"
       fi
     ;;
   aa) # if playerctl is installed then run audio in background and use playerctl to control
       if [ -x "$(command -v playerctl)" ]; then
-        eval "$audio_cli '$lnk'" > /dev/null 2>&1 &
+        eval "$audio_cli_mpv '$lnk'" > /dev/null 2>&1 &
       elif [ "$TERM_PROGRAM" = tmux ]; then
-        tmux split-window -v -l 10 && tmux send-keys "$audio_cli '$lnk' && tmux kill-pane" C-m
+        tmux split-window -v -l 10 && tmux send-keys "$audio_cli_mpv '$lnk' && tmux kill-pane" C-m
       else
-        eval "$audio_cli '$lnk'"
+        eval "$audio_cli_mpv '$lnk'"
       fi
     ;;
-  ld) 
+  bl)
       printf '%s\n' "Add to LINKDING Bookmarks"
       printf '%s\n' "URL: $lnk"
       printf '%s\n' "------------------------"
@@ -178,23 +257,53 @@ case $selection in
       [ -z "$shared" ] && printf '%s\n' 'y/n not entered, exiting ...3..2..1' && sleep 3 && exit
       printf '\n'
       if [[ $shared =~ ^[Yy]$ ]]; then
-        eval "$bookmarker '$lnk' --shared --tags $tags"
+        eval "$bookmarker_linkding '$lnk' --shared --tags $tags"
         printf '\n'
         printf '%s\n' "Press any key to continue"
         read -rsn1
       else
-        eval "$bookmarker '$lnk' --tags $tags"
+        eval "$bookmarker_linkding '$lnk' --tags $tags"
         printf '\n'
         printf '%s\n' "Press any key to continue"
         read -rsn1
       fi
     ;;
-  rr)
-      if [ "$TERM_PROGRAM" = tmux ]; then
-        tmux new-window -n reddit-comments && tmux send-keys "$show_comment_reddit '$lnk' 2>/dev/null && tmux kill-pane" C-m
-      else
-        eval "$show_comment_reddit '$lnk' 2>/dev/null"
+  bb)
+      color_off='\e[0m'
+      red='\e[0;31m'
+      green='\e[0;32m'
+      blue='\e[0;34m'
+
+      echo "ADD BOOKMARK"
+      echo "============"
+      echo -e "${red}SAVE TO: $mybkmark $color_off"
+      echo
+
+      # show current page url and link url if is not empty
+      echo -e "${blue}>>> URL: $lnk $color_off"
+
+      #### nickname input
+      echo -e "${green}----------------------------------------------------------${color_off}"
+      echo -e "${green}>>> 1) Enter nickname for this bookmark. ${red}(single word, no spaces, no symbols)${color_off}"
+      set -o vi
+      printf "Nickname: " && read -r nickname
+      [ -z "$nickname" ] && exit || nickname=$(echo "$nickname" | awk '{print $1}')
+      echo
+
+      #### keyword tags input
+      echo -e "${green}>>> 2) Enter keyword tag(s) for this bookmark. ${red}(separate each tags with a space)${color_off}"
+      printf "Keywords: " && read -r keywords
+      echo
+
+      #### if file does not exist then create path
+      if [ ! -f "$mybkmark" ]; then
+        mkdir -p "$(dirname "$mybkmark")"
       fi
+
+      #### append bookmarks to end of file
+      echo "$nickname $lnk $keywords" | xargs >> "$mybkmark"
+      echo -e "${blue}Bookmark added: $nickname $lnk $color_off"
+
     ;;
   uu)
       if [ "$TERM_PROGRAM" = tmux ]; then
@@ -203,28 +312,43 @@ case $selection in
         eval "$show_comment_youtube '$lnk' 2>/dev/null"
       fi
     ;;
-  mm) eval "$queue_media $video_gui '$lnk'" ;;
-  mc) eval "$video_cli '$lnk'" ;;
-  fb) eval "$video_tty '$lnk'" ;;
-  ll) $video_img "$lnk" > /dev/null 2>&1 & ;;
-  tt) eval "$dl_torrent '$lnk'" ;;
-  ts) eval "$dl_torrent_server '$lnk'" ;;
-  md) eval "$queue_dl $dl_megatools '$lnk'" ;;
-  ps) eval "$queue_dl $dl_plowshare '$lnk'" ;;
-  uv) eval "$queue_dl $dl_ytdlp '$lnk'" ;;
-  wg) eval "$queue_dl $dl_wget '$lnk'" ;;
-  ww) $browser_tui "$lnk" ;;
-  rv) $browser_tui_reader_view "$lnk" ;;
-  bb) $browser_gui "$lnk" ;;
-  pp) $browser_gui_private "$lnk" ;;
-  wb) $browser_gui "https://web.archive.org/$lnk" ;;
-  wk) $browser_tui "https://web.archive.org/$lnk" ;;
+  vv) eval "$queue_media $video_gui_mpv '$lnk'" ;;
+  vc) eval "$video_cli_mpv '$lnk'" ;;
+  vi) $video_img_mpv "$lnk" > /dev/null 2>&1 & ;;
+  vf) eval "$video_tty_mpv '$lnk'" ;;
+  dt) eval "$dl_transmission '$lnk'" ;;
+  dr) eval "$dl_transmission_server '$lnk'" ;;
+  dm) eval "$queue_dl $dl_megatools '$lnk'" ;;
+  dp) eval "$queue_dl $dl_plowshare '$lnk'" ;;
+  dy) eval "$queue_dl $dl_ytdlp '$lnk'" ;;
+  dw) eval "$queue_dl $dl_wget '$lnk'" ;;
+  ds) eval "$dl_surge '$lnk'" ;;
+  da) eval "$dl_aria2p '$lnk'" ;;
+  di) eval "$dl_aria2tui '$lnk'" ;;
+  rv) $readerview_rdrview "$lnk" ;;
+  ww) $browser_tui_w3m "$lnk" ;;
+  wm) $browser_tui_w3m "https://web.archive.org/$lnk" ;;
+  wc) $browser_tui_chawan "$lnk" ;;
+  wl) $browser_tui_lynx "$lnk" ;;
+  we) $browser_tui_elinks "$lnk" ;;
+  wi) $browser_tui_links "$lnk" ;;
+  wf) $browser_gui_firefox "$lnk" ;;
+  wp) $browser_gui_firefox_private "$lnk" ;;
+  wk) $browser_gui_firefox "https://web.archive.org/$lnk" ;;
+  wb) $browser_gui_brave "$lnk" ;;
+  wo) $browser_gui_brave_private "$lnk" ;;
+  wv) $browser_gui_brave "https://web.archive.org/$lnk" ;;
+  wf) $browser_gui_chromium "$lnk" ;;
+  wp) $browser_gui_chromium_private "$lnk" ;;
+  wk) $browser_gui_chromium "https://web.archive.org/$lnk" ;;
   cc) $st_chromecast "$lnk" ;;
   cq) $st_chromecast_queue "$lnk" ;;
   kk) eval "$st_kodi '$lnk'" ;;
   kq) eval "$st_kodi_queue '$lnk'" ;;
-  ap) eval "$dl_aria2p $lnk" ;;
-  ii) $img_viewer_gui "$lnk" ;;
-  vv) curl "$lnk" | $img_viewer_cli - ;;
+  ig) $img_viewer_gui_feh "$lnk" ;;
+  ii) curl "$lnk" | $img_viewer_cli_chafa - ;;
 esac
+
+# }}}
+
 
